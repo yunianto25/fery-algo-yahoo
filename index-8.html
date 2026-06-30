@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FERY ALGO — Rule-Based XAU/USD System (Yahoo Finance)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --bg: #0A0A0A;
+    --bg2: #0F0F0F;
+    --bg3: #161616;
+    --border: #232323;
+    --gold: #C9A84C;
+    --gold-bright: #F0C040;
+    --gold-dim: #8a7536;
+    --text: #EDEDED;
+    --text-dim: #8a8a8a;
+    --text-faint: #555;
+    --green: #3DDC84;
+    --red: #FF5C5C;
+    --blue: #5B8DEF;
+    --font: 'Space Grotesk', sans-serif;
+    --mono: 'Space Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* HEADER */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .logo-box {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, var(--gold), var(--gold-bright));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: #000; font-size: 18px;
+  }
+  .logo-title { font-weight: 700; font-size: 16px; letter-spacing: 0.05em; color: var(--gold); }
+  .logo-sub { font-size: 10px; color: var(--text-dim); font-family: var(--mono); letter-spacing: 0.05em; }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .live-badge {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 11px; color: var(--green);
+    letter-spacing: 0.1em;
+  }
+  .live-badge.offline { color: var(--red); }
+  .live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+  .live-badge.offline .live-dot { background: var(--red); animation: none; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .session-clock { font-family: var(--mono); font-size: 12px; color: var(--text-dim); }
+
+  /* DATA SOURCE BANNER */
+  .source-banner {
+    padding: 8px 16px;
+    background: rgba(91,141,239,0.08);
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--blue);
+    text-align: center;
+    letter-spacing: 0.05em;
+  }
+
+  /* RULE BANNER */
+  .rule-banner {
+    display: flex;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+  }
+  .rule-step {
+    flex: 1;
+    min-width: 140px;
+    padding: 10px 16px;
+    border-right: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    letter-spacing: 0.05em;
+  }
+  .rule-step .num { color: var(--gold-dim); font-weight: 700; }
+  .rule-step.active { background: rgba(201,168,76,0.07); color: var(--text-dim); }
+  .rule-step.active .num { color: var(--gold-bright); }
+
+  /* LAYOUT */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 16px;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .card-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title .step-num {
+    width: 18px; height: 18px;
+    background: var(--gold-dim);
+    color: #000;
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700;
+  }
+  .card-body { padding: 16px; }
+
+  /* STATUS BADGE */
+  .status-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+  }
+  .status-buy { background: rgba(61,220,132,0.15); color: var(--green); }
+  .status-sell { background: rgba(255,92,92,0.15); color: var(--red); }
+  .status-wait { background: rgba(138,138,138,0.15); color: var(--text-dim); }
+  .status-conflict { background: rgba(255,92,92,0.15); color: var(--red); }
+
+  /* BIAS GRID */
+  .bias-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .bias-tf {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px;
+    text-align: center;
+  }
+  .bias-tf-label { font-family: var(--mono); font-size: 9px; color: var(--text-faint); letter-spacing: 0.1em; margin-bottom: 6px; }
+  .bias-tf-val { font-family: var(--mono); font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .bias-tf-sub { font-size: 10px; color: var(--text-dim); }
+  .bias-up { color: var(--green); }
+  .bias-down { color: var(--red); }
+  .bias-flat { color: var(--text-dim); }
+
+  .verdict-box {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px;
+    text-align: center;
+  }
+  .verdict-label { font-family: var(--mono); font-size: 9px; color: var(--text-faint); letter-spacing: 0.1em; margin-bottom: 8px; }
+  .verdict-val { font-family: var(--mono); font-size: 20px; font-weight: 700; }
+
+  /* CHART */
+  .chart-wrap { height: 380px; }
+
+  /* ENTRY SCANNER */
+  .entry-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .entry-stat {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 12px;
+  }
+  .entry-stat-label { font-family: var(--mono); font-size: 9px; color: var(--text-faint); letter-spacing: 0.08em; margin-bottom: 4px; }
+  .entry-stat-val { font-family: var(--mono); font-size: 14px; font-weight: 700; }
+
+  .signal-result {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px;
+    margin-top: 12px;
+  }
+  .signal-result.buy { border-color: rgba(61,220,132,0.4); background: rgba(61,220,132,0.05); }
+  .signal-result.sell { border-color: rgba(255,92,92,0.4); background: rgba(255,92,92,0.05); }
+  .signal-result.wait { border-color: var(--border); background: var(--bg3); }
+  .signal-reason { font-size: 12px; color: var(--text-dim); line-height: 1.6; margin-top: 8px; }
+
+  /* RISK CALC */
+  .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .input-group label { display: block; font-family: var(--mono); font-size: 9px; color: var(--text-faint); letter-spacing: 0.08em; margin-bottom: 6px; }
+  .input-group input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+  .input-group input:focus { outline: none; border-color: var(--gold-dim); }
+
+  .rr-result {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px;
+    margin-top: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .rr-result.ok { border-color: rgba(61,220,132,0.4); }
+  .rr-result.warn { border-color: rgba(255,92,92,0.4); }
+  .rr-val { font-family: var(--mono); font-size: 22px; font-weight: 700; }
+  .rr-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+  .btn {
+    width: 100%;
+    background: linear-gradient(135deg, var(--gold), var(--gold-bright));
+    border: none;
+    border-radius: 4px;
+    padding: 12px;
+    color: #000;
+    font-weight: 700;
+    font-family: var(--font);
+    font-size: 13px;
+    cursor: pointer;
+    margin-top: 12px;
+    letter-spacing: 0.03em;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.5; }
+  .btn.secondary {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+
+  /* LOG TABLE */
+  .log-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 11px; }
+  .log-table th {
+    text-align: left;
+    padding: 8px 10px;
+    color: var(--text-faint);
+    font-weight: 400;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+    font-size: 9px;
+  }
+  .log-table td {
+    padding: 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .log-table tr:last-child td { border-bottom: none; }
+  .log-status { font-weight: 700; padding: 2px 8px; border-radius: 3px; font-size: 9px; }
+  .log-status.pending { background: rgba(138,138,138,0.15); color: var(--text-dim); }
+  .log-status.win { background: rgba(61,220,132,0.15); color: var(--green); }
+  .log-status.loss { background: rgba(255,92,92,0.15); color: var(--red); }
+  .log-empty { text-align: center; padding: 24px; color: var(--text-faint); font-size: 11px; }
+
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+  .stat-box { background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; padding: 10px; text-align: center; }
+  .stat-box .num { font-family: var(--mono); font-size: 18px; font-weight: 700; }
+  .stat-box .lbl { font-family: var(--mono); font-size: 8px; color: var(--text-faint); letter-spacing: 0.08em; margin-top: 2px; }
+
+  ::-webkit-scrollbar { height: 4px; width: 4px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo-box">F</div>
+    <div>
+      <div class="logo-title">FERY ALGO</div>
+      <div class="logo-sub">RULE-BASED XAU/USD SYSTEM</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge" id="liveBadge"><div class="live-dot"></div>LIVE</div>
+    <div class="session-clock" id="sessionClock">--:--:--</div>
+  </div>
+</div>
+
+<div class="source-banner" id="sourceBanner">DATA SOURCE: Yahoo Finance GC=F • Menyambungkan...</div>
+
+<div class="rule-banner">
+  <div class="rule-step active"><span class="num">1.</span> HTF BIAS</div>
+  <div class="rule-step active"><span class="num">2.</span> LTF ENTRY</div>
+  <div class="rule-step active"><span class="num">3.</span> RISK MGMT</div>
+  <div class="rule-step active"><span class="num">4.</span> BACKTEST LOG</div>
+</div>
+
+<div class="main">
+
+  <!-- RULE 1: HTF BIAS -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="step-num">1</span> HTF BIAS — H4 & D1</div>
+      <div class="status-badge status-wait" id="biasStatusBadge">MEMUAT</div>
+    </div>
+    <div class="card-body">
+      <div class="bias-grid">
+        <div class="bias-tf">
+          <div class="bias-tf-label">H4 BIAS</div>
+          <div class="bias-tf-val bias-flat" id="h4BiasVal">--</div>
+          <div class="bias-tf-sub" id="h4BiasSub">Memuat data...</div>
+        </div>
+        <div class="bias-tf">
+          <div class="bias-tf-label">D1 BIAS</div>
+          <div class="bias-tf-val bias-flat" id="d1BiasVal">--</div>
+          <div class="bias-tf-sub" id="d1BiasSub">Memuat data...</div>
+        </div>
+      </div>
+      <div class="verdict-box">
+        <div class="verdict-label">ARAH YANG DIIZINKAN</div>
+        <div class="verdict-val bias-flat" id="biasVerdict">MENGHITUNG...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHART -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">LIVE CHART — TRADINGVIEW</div>
+      <div style="font-size:9px;font-family:var(--mono);color:var(--text-faint)">XAUUSD</div>
+    </div>
+    <div class="chart-wrap" id="tvChartContainer"></div>
+  </div>
+
+  <!-- RULE 2: LTF ENTRY SCANNER -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="step-num">2</span> LTF ENTRY SCANNER — M5/M15</div>
+      <div class="status-badge status-wait" id="entryStatusBadge">SCANNING</div>
+    </div>
+    <div class="card-body">
+      <div class="entry-row">
+        <div class="entry-stat">
+          <div class="entry-stat-label">STRUKTUR TERAKHIR</div>
+          <div class="entry-stat-val" id="structVal" style="color:var(--text-dim)">--</div>
+        </div>
+        <div class="entry-stat">
+          <div class="entry-stat-label">ZONA TERDEKAT</div>
+          <div class="entry-stat-val" id="zoneVal" style="color:var(--text-dim)">--</div>
+        </div>
+      </div>
+      <button class="btn" id="scanBtn" onclick="runEntryScan()">⚡ SCAN ENTRY (M5)</button>
+      <div class="signal-result wait" id="signalResultBox">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-family:var(--mono); font-size:11px; color:var(--text-faint);">HASIL SCAN</span>
+          <span class="status-badge status-wait" id="signalDirBadge">WAIT</span>
+        </div>
+        <div class="signal-reason" id="signalReasonText">Tap "Scan Entry" untuk mulai analisis LTF.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RULE 3: RISK MANAGEMENT -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="step-num">3</span> RISK MANAGEMENT — Min RR 1:1.5</div>
+    </div>
+    <div class="card-body">
+      <div class="input-row">
+        <div class="input-group">
+          <label>MODAL ($)</label>
+          <input type="number" id="riskCapital" value="1000" oninput="calcRisk()">
+        </div>
+        <div class="input-group">
+          <label>RISIKO PER TRADE (%)</label>
+          <input type="number" id="riskPct" value="1" step="0.1" oninput="calcRisk()">
+        </div>
+      </div>
+      <div class="input-row">
+        <div class="input-group">
+          <label>ENTRY ($)</label>
+          <input type="number" id="riskEntry" placeholder="Auto dari scan" step="0.01" oninput="calcRisk()">
+        </div>
+        <div class="input-group">
+          <label>STOP LOSS ($)</label>
+          <input type="number" id="riskSL" placeholder="Auto dari scan" step="0.01" oninput="calcRisk()">
+        </div>
+      </div>
+      <div class="input-row">
+        <div class="input-group">
+          <label>TAKE PROFIT ($)</label>
+          <input type="number" id="riskTP" placeholder="Auto dari scan" step="0.01" oninput="calcRisk()">
+        </div>
+        <div class="input-group">
+          <label>LOT SIZE</label>
+          <input type="text" id="riskLotOut" readonly value="0.01" style="color:var(--gold);">
+        </div>
+      </div>
+      <div class="rr-result" id="rrResultBox">
+        <div>
+          <div class="rr-val" id="rrVal" style="color:var(--text-dim);">--</div>
+          <div class="rr-sub" id="rrSub">Isi entry/SL/TP untuk hitung RR</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="rr-val" id="riskAmountVal" style="color:var(--text-dim); font-size:14px;">$--</div>
+          <div class="rr-sub">Risiko $</div>
+        </div>
+      </div>
+      <button class="btn" id="logTradeBtn" onclick="logTrade()">📝 CATAT KE BACKTEST LOG</button>
+    </div>
+  </div>
+
+  <!-- RULE 4: BACKTEST LOG -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="step-num">4</span> BACKTEST / TRADE LOG</div>
+      <button class="btn secondary" style="width:auto; margin:0; padding:6px 12px; font-size:10px;" onclick="clearLog()">CLEAR</button>
+    </div>
+    <div class="card-body">
+      <div class="stats-row">
+        <div class="stat-box">
+          <div class="num" id="statTotal" style="color:var(--text);">0</div>
+          <div class="lbl">TOTAL</div>
+        </div>
+        <div class="stat-box">
+          <div class="num" id="statWinrate" style="color:var(--gold);">0%</div>
+          <div class="lbl">WINRATE</div>
+        </div>
+        <div class="stat-box">
+          <div class="num" id="statPending" style="color:var(--text-dim);">0</div>
+          <div class="lbl">PENDING</div>
+        </div>
+      </div>
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>WAKTU</th>
+            <th>ARAH</th>
+            <th>ENTRY</th>
+            <th>RR</th>
+            <th>STATUS</th>
+          </tr>
+        </thead>
+        <tbody id="logTableBody">
+          <tr><td colspan="5" class="log-empty">Belum ada trade tercatat. Catat sinyal dari Rule 3 di atas.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ==============================
+// STATE
+// ==============================
+let currentPrice = 0;
+let h4Candles = [];
+let d1Candles = [];
+let m5Candles = [];
+let lastSignal = null; // { direction, entry, sl, tp, reason }
+let tradeLog = [];
+
+// ==============================
+// CLOCK
+// ==============================
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const s = String(now.getSeconds()).padStart(2,'0');
+  document.getElementById('sessionClock').textContent = `${h}:${m}:${s} WIB`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ==============================
+// TRADINGVIEW CHART (real, free, no key)
+// ==============================
+function loadTradingViewChart() {
+  const container = document.getElementById('tvChartContainer');
+  container.innerHTML = '';
+
+  const widgetDiv = document.createElement('div');
+  widgetDiv.className = 'tradingview-widget-container';
+  widgetDiv.style.height = '100%';
+  widgetDiv.style.width = '100%';
+
+  const innerDiv = document.createElement('div');
+  innerDiv.className = 'tradingview-widget-container__widget';
+  innerDiv.style.height = '100%';
+  innerDiv.style.width = '100%';
+  widgetDiv.appendChild(innerDiv);
+
+  const script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+  script.async = true;
+  script.innerHTML = JSON.stringify({
+    autosize: true,
+    symbol: 'OANDA:XAUUSD',
+    interval: '15',
+    timezone: 'Asia/Jakarta',
+    theme: 'dark',
+    style: '1',
+    locale: 'id',
+    backgroundColor: '#0F0F0F',
+    gridColor: 'rgba(35,35,35,1)',
+    hide_top_toolbar: false,
+    hide_legend: false,
+    allow_symbol_change: false,
+    support_host: 'https://www.tradingview.com'
+  });
+  widgetDiv.appendChild(script);
+  container.appendChild(widgetDiv);
+}
+
+// ==============================
+// YAHOO FINANCE FETCH — MULTI PROXY FALLBACK
+// Yahoo's chart API doesn't send CORS headers, so we have to route the
+// request through a public CORS proxy. Multiple proxies are tried in
+// order — if one is down or rate-limited, the next one is used.
+// ==============================
+const YAHOO_SYMBOL = 'GC=F'; // Gold futures (COMEX) — closest free proxy to XAU/USD spot
+const CORS_PROXIES = [
+  (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+  (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+  (url) => `https://thingproxy.freeboard.io/fetch/${url}`
+];
+
+function fetchWithTimeout(url, ms = 9000) {
+  const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms));
+  return Promise.race([fetch(url), timeout]);
+}
+
+async function fetchYahooChart(interval, range) {
+  const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(YAHOO_SYMBOL)}?interval=${interval}&range=${range}`;
+  let lastErr = null;
+
+  for (const buildProxyUrl of CORS_PROXIES) {
+    try {
+      const proxyUrl = buildProxyUrl(targetUrl);
+      const res = await fetchWithTimeout(proxyUrl);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const json = await res.json();
+
+      const result = json && json.chart && json.chart.result && json.chart.result[0];
+      if (!result || !result.timestamp) throw new Error('Format respons tidak valid');
+
+      setLiveStatus(true);
+      return result;
+    } catch (e) {
+      lastErr = e;
+      console.warn('Proxy gagal, coba berikutnya:', e.message || e);
+    }
+  }
+
+  setLiveStatus(false);
+  throw lastErr || new Error('Semua proxy CORS gagal');
+}
+
+function setLiveStatus(isLive) {
+  const badge = document.getElementById('liveBadge');
+  const banner = document.getElementById('sourceBanner');
+  if (isLive) {
+    badge.classList.remove('offline');
+    badge.innerHTML = '<div class="live-dot"></div>LIVE';
+    banner.textContent = 'DATA SOURCE: Yahoo Finance GC=F • Tersambung';
+  } else {
+    badge.classList.add('offline');
+    badge.innerHTML = '<div class="live-dot"></div>OFFLINE';
+    banner.textContent = 'DATA SOURCE: Yahoo Finance GC=F • Gagal — semua proxy CORS tidak merespons, coba lagi nanti';
+  }
+}
+
+// Converts Yahoo's column-based response into the same row-based candle
+// format used elsewhere in this app: [time, open, high, low, close]
+function yahooToCandles(result) {
+  const ts = result.timestamp;
+  const q = result.indicators.quote[0];
+  const candles = [];
+  for (let i = 0; i < ts.length; i++) {
+    if (q.open[i] == null || q.high[i] == null || q.low[i] == null || q.close[i] == null) continue;
+    candles.push([ts[i] * 1000, q.open[i], q.high[i], q.low[i], q.close[i]]);
+  }
+  return candles;
+}
+
+// Aggregates 1h candles into 4h candles (Yahoo has no native 4h interval)
+function aggregateToH4(h1Candles) {
+  const h4 = [];
+  for (let i = 0; i < h1Candles.length; i += 4) {
+    const chunk = h1Candles.slice(i, i + 4);
+    if (chunk.length === 0) continue;
+    const open = chunk[0][1];
+    const close = chunk[chunk.length - 1][4];
+    const high = Math.max(...chunk.map(c => c[2]));
+    const low = Math.min(...chunk.map(c => c[3]));
+    h4.push([chunk[0][0], open, high, low, close]);
+  }
+  return h4;
+}
+
+// ==============================
+// RULE 1: HTF BIAS (H4 + D1)
+// Logic: price vs EMA50 + simple swing structure (HH-HL vs LH-LL)
+// Only allows a direction when H4 and D1 agree. Conflict = NO TRADE.
+// ==============================
+function ema(values, period) {
+  const k = 2 / (period + 1);
+  let emaVal = values[0];
+  for (let i = 1; i < values.length; i++) emaVal = values[i] * k + emaVal * (1 - k);
+  return emaVal;
+}
+
+function detectStructure(candles) {
+  if (candles.length < 20) return 'FLAT';
+  const highs = candles.map(c => c[2]);
+  const lows = candles.map(c => c[3]);
+
+  const recentHigh = Math.max(...highs.slice(-10));
+  const prevHigh = Math.max(...highs.slice(-20, -10));
+  const recentLow = Math.min(...lows.slice(-10));
+  const prevLow = Math.min(...lows.slice(-20, -10));
+
+  if (recentHigh > prevHigh && recentLow > prevLow) return 'HH-HL';
+  if (recentHigh < prevHigh && recentLow < prevLow) return 'LH-LL';
+  return 'FLAT';
+}
+
+function evaluateBias(candles) {
+  if (candles.length < 30) return { dir: 'FLAT', struct: 'FLAT', price: null, e50: null };
+  const closes = candles.map(c => c[4]);
+  const price = closes[closes.length - 1];
+  const e50 = ema(closes.slice(-Math.min(closes.length, 100)), Math.min(50, closes.length - 1));
+  const struct = detectStructure(candles);
+
+  let dir = 'FLAT';
+  if (price > e50 && struct === 'HH-HL') dir = 'UP';
+  else if (price < e50 && struct === 'LH-LL') dir = 'DOWN';
+  else if (price > e50) dir = 'UP';
+  else if (price < e50) dir = 'DOWN';
+
+  return { dir, struct, price, e50 };
+}
+
+async function refreshBias() {
+  try {
+    const [h1Result, d1Result] = await Promise.all([
+      fetchYahooChart('60m', '1mo'),
+      fetchYahooChart('1d', '2y')
+    ]);
+
+    const h1Candles = yahooToCandles(h1Result);
+    h4Candles = aggregateToH4(h1Candles);
+    d1Candles = yahooToCandles(d1Result);
+
+    const h4Eval = evaluateBias(h4Candles);
+    const d1Eval = evaluateBias(d1Candles);
+    if (h4Eval.price) currentPrice = h4Eval.price;
+
+    renderBiasTF('h4', h4Eval);
+    renderBiasTF('d1', d1Eval);
+    renderVerdict(h4Eval, d1Eval);
+
+  } catch(e) {
+    console.error('Bias fetch error:', e.message || e);
+    document.getElementById('biasVerdict').textContent = 'KONEKSI GAGAL';
+    document.getElementById('biasStatusBadge').textContent = 'ERROR';
+  }
+}
+
+function renderBiasTF(prefix, ev) {
+  const valEl = document.getElementById(prefix + 'BiasVal');
+  const subEl = document.getElementById(prefix + 'BiasSub');
+  valEl.classList.remove('bias-up','bias-down','bias-flat');
+  if (ev.dir === 'UP') {
+    valEl.textContent = '▲ BULLISH';
+    valEl.classList.add('bias-up');
+  } else if (ev.dir === 'DOWN') {
+    valEl.textContent = '▼ BEARISH';
+    valEl.classList.add('bias-down');
+  } else {
+    valEl.textContent = '◆ FLAT';
+    valEl.classList.add('bias-flat');
+  }
+  subEl.textContent = `Struktur: ${ev.struct} • EMA50: ${ev.e50 ? ev.e50.toFixed(2) : '--'}`;
+}
+
+function renderVerdict(h4Eval, d1Eval) {
+  const verdictEl = document.getElementById('biasVerdict');
+  const badgeEl = document.getElementById('biasStatusBadge');
+  verdictEl.classList.remove('bias-up','bias-down','bias-flat');
+
+  if (h4Eval.dir === 'UP' && d1Eval.dir === 'UP') {
+    verdictEl.textContent = '▲ BUY ONLY';
+    verdictEl.classList.add('bias-up');
+    badgeEl.className = 'status-badge status-buy';
+    badgeEl.textContent = 'ALIGNED';
+    window.allowedDirection = 'BUY';
+  } else if (h4Eval.dir === 'DOWN' && d1Eval.dir === 'DOWN') {
+    verdictEl.textContent = '▼ SELL ONLY';
+    verdictEl.classList.add('bias-down');
+    badgeEl.className = 'status-badge status-sell';
+    badgeEl.textContent = 'ALIGNED';
+    window.allowedDirection = 'SELL';
+  } else {
+    verdictEl.textContent = '✕ NO TRADE — H4/D1 BEDA ARAH';
+    verdictEl.classList.add('bias-flat');
+    badgeEl.className = 'status-badge status-conflict';
+    badgeEl.textContent = 'CONFLICT';
+    window.allowedDirection = null;
+  }
+}
+
+// ==============================
+// RULE 2: LTF ENTRY SCANNER (M5)
+// Logic: detect BOS/CHoCH on M5 + nearest supply/demand zone from recent swing.
+// Only produces a valid signal if direction matches the HTF-allowed direction.
+// ==============================
+function findSwingZones(candles) {
+  const zones = { supply: null, demand: null };
+  for (let i = candles.length - 5; i >= 5; i--) {
+    const slice = candles.slice(i - 2, i + 3);
+    const highs = slice.map(c => c[2]);
+    const lows = slice.map(c => c[3]);
+    const mid = candles[i];
+    const midHigh = mid[2];
+    const midLow = mid[3];
+
+    if (!zones.supply && midHigh === Math.max(...highs)) zones.supply = midHigh;
+    if (!zones.demand && midLow === Math.min(...lows)) zones.demand = midLow;
+    if (zones.supply && zones.demand) break;
+  }
+  return zones;
+}
+
+function detectBOSCHoCH(candles) {
+  if (candles.length < 30) return 'FLAT';
+  const highs = candles.map(c => c[2]);
+  const lows = candles.map(c => c[3]);
+  const closes = candles.map(c => c[4]);
+
+  const recentHigh = Math.max(...highs.slice(-15));
+  const prevHigh = Math.max(...highs.slice(-30, -15));
+  const recentLow = Math.min(...lows.slice(-15));
+  const prevLow = Math.min(...lows.slice(-30, -15));
+  const lastClose = closes[closes.length - 1];
+
+  if (lastClose > prevHigh) return 'BOS_UP';
+  if (lastClose < prevLow) return 'BOS_DOWN';
+  if (recentHigh > prevHigh && recentLow < prevLow) return 'CHOCH';
+  return 'FLAT';
+}
+
+function computeATR(candles, period = 14) {
+  if (!candles || candles.length < 2) return 2;
+  const trs = [];
+  const start = Math.max(1, candles.length - period);
+  for (let i = start; i < candles.length; i++) {
+    const high = candles[i][2];
+    const low = candles[i][3];
+    const prevClose = candles[i-1][4];
+    trs.push(Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose)));
+  }
+  return trs.reduce((a,b)=>a+b,0) / trs.length;
+}
+
+async function runEntryScan() {
+  const btn = document.getElementById('scanBtn');
+  btn.disabled = true;
+  btn.textContent = 'SCANNING...';
+
+  try {
+    const m5Result = await fetchYahooChart('5m', '5d');
+    m5Candles = yahooToCandles(m5Result);
+
+    const struct = detectBOSCHoCH(m5Candles);
+    const zones = findSwingZones(m5Candles);
+    const atr = computeATR(m5Candles);
+    const price = m5Candles[m5Candles.length - 1][4];
+    currentPrice = price;
+
+    document.getElementById('structVal').textContent = struct.replace('_', ' ');
+    document.getElementById('zoneVal').textContent =
+      `S:${zones.supply ? zones.supply.toFixed(1) : '--'} / D:${zones.demand ? zones.demand.toFixed(1) : '--'}`;
+
+    evaluateEntry(struct, zones, price, atr);
+
+  } catch(e) {
+    console.error('Entry scan error:', e.message || e);
+    document.getElementById('signalReasonText').textContent = 'Error: ' + (e.message || 'Koneksi gagal, coba lagi.');
+  }
+
+  btn.disabled = false;
+  btn.textContent = '⚡ SCAN ENTRY (M5)';
+}
+
+function evaluateEntry(struct, zones, price, atr) {
+  const allowed = window.allowedDirection;
+  const badge = document.getElementById('signalDirBadge');
+  const box = document.getElementById('signalResultBox');
+  const reasonEl = document.getElementById('signalReasonText');
+  box.className = 'signal-result wait';
+  badge.className = 'status-badge status-wait';
+
+  if (!allowed) {
+    badge.textContent = 'WAIT';
+    badge.className = 'status-badge status-wait';
+    reasonEl.textContent = 'H4 dan D1 bias konflik (Rule 1) — sistem ini gak kasih entry sampai HTF align. Tunggu bias jelas dulu.';
+    lastSignal = null;
+    return;
+  }
+
+  let direction = null;
+  let reasonParts = [];
+
+  if (allowed === 'BUY' && struct === 'BOS_UP') {
+    direction = 'BUY';
+    reasonParts.push('HTF bias BUY (H4+D1 align)', 'M5 baru break struktur naik (BOS_UP)');
+  } else if (allowed === 'SELL' && struct === 'BOS_DOWN') {
+    direction = 'SELL';
+    reasonParts.push('HTF bias SELL (H4+D1 align)', 'M5 baru break struktur turun (BOS_DOWN)');
+  }
+
+  if (!direction) {
+    badge.textContent = 'WAIT';
+    reasonEl.textContent = `HTF bias ${allowed}, tapi M5 belum konfirmasi break struktur searah (struktur M5 saat ini: ${struct}). Tunggu BOS yang sesuai arah HTF.`;
+    lastSignal = null;
+    return;
+  }
+
+  const slDistance = Math.max(atr * 1.2, 1.5);
+  let entry = price;
+  let sl, tp;
+
+  if (direction === 'BUY') {
+    sl = zones.demand ? Math.min(zones.demand, price - slDistance) : price - slDistance;
+    const risk = entry - sl;
+    tp = entry + risk * 1.5;
+  } else {
+    sl = zones.supply ? Math.max(zones.supply, price + slDistance) : price + slDistance;
+    const risk = sl - entry;
+    tp = entry - risk * 1.5;
+  }
+
+  reasonParts.push(`SL ditempatkan di belakang zona ${direction === 'BUY' ? 'demand' : 'supply'} terdekat + buffer ATR`);
+
+  lastSignal = { direction, entry, sl, tp, reason: reasonParts.join('. ') + '.' };
+
+  badge.textContent = direction === 'BUY' ? '▲ BUY' : '▼ SELL';
+  badge.className = direction === 'BUY' ? 'status-badge status-buy' : 'status-badge status-sell';
+  box.className = 'signal-result ' + (direction === 'BUY' ? 'buy' : 'sell');
+  reasonEl.innerHTML = `<strong>Entry:</strong> ${entry.toFixed(2)} • <strong>SL:</strong> ${sl.toFixed(2)} • <strong>TP:</strong> ${tp.toFixed(2)}<br><br>${lastSignal.reason}`;
+
+  document.getElementById('riskEntry').value = entry.toFixed(2);
+  document.getElementById('riskSL').value = sl.toFixed(2);
+  document.getElementById('riskTP').value = tp.toFixed(2);
+  calcRisk();
+}
+
+// ==============================
+// RULE 3: RISK MANAGEMENT (fixed % risk, min RR 1:1.5)
+// ==============================
+function calcRisk() {
+  const capital = parseFloat(document.getElementById('riskCapital').value) || 1000;
+  const riskPct = parseFloat(document.getElementById('riskPct').value) || 1;
+  const entry = parseFloat(document.getElementById('riskEntry').value);
+  const sl = parseFloat(document.getElementById('riskSL').value);
+  const tp = parseFloat(document.getElementById('riskTP').value);
+
+  const riskAmount = capital * (riskPct / 100);
+  document.getElementById('riskAmountVal').textContent = '$' + riskAmount.toFixed(2);
+
+  const rrBox = document.getElementById('rrResultBox');
+  const rrVal = document.getElementById('rrVal');
+  const rrSub = document.getElementById('rrSub');
+
+  if (!entry || !sl || !tp || isNaN(entry) || isNaN(sl) || isNaN(tp)) {
+    rrVal.textContent = '--';
+    rrVal.style.color = 'var(--text-dim)';
+    rrSub.textContent = 'Isi entry/SL/TP untuk hitung RR (atau jalankan Rule 2 scan)';
+    rrBox.className = 'rr-result';
+    document.getElementById('riskLotOut').value = '0.01';
+    return;
+  }
+
+  const riskDist = Math.abs(entry - sl);
+  const rewardDist = Math.abs(tp - entry);
+  const rr = riskDist > 0 ? rewardDist / riskDist : 0;
+
+  const pipValuePerLot = 100; // XAU/USD standard: $100 per $1 move per lot
+  let lot = riskAmount / (riskDist * pipValuePerLot);
+  lot = Math.max(0.01, Math.round(lot * 100) / 100);
+  document.getElementById('riskLotOut').value = lot.toFixed(2) + ' lot';
+
+  rrVal.textContent = '1 : ' + rr.toFixed(2);
+  if (rr >= 1.5) {
+    rrVal.style.color = 'var(--green)';
+    rrSub.textContent = '✓ Memenuhi syarat minimum RR 1:1.5';
+    rrBox.className = 'rr-result ok';
+  } else {
+    rrVal.style.color = 'var(--red)';
+    rrSub.textContent = '⚠ Di bawah minimum 1:1.5 — pertimbangkan ulang setup ini';
+    rrBox.className = 'rr-result warn';
+  }
+}
+
+// ==============================
+// RULE 4: BACKTEST / TRADE LOG (persisted via localStorage — works on GitHub Pages)
+// ==============================
+const LOG_STORAGE_KEY = 'fery-algo-trade-log';
+
+function loadLog() {
+  try {
+    const raw = localStorage.getItem(LOG_STORAGE_KEY);
+    tradeLog = raw ? JSON.parse(raw) : [];
+  } catch {
+    tradeLog = [];
+  }
+  renderLog();
+}
+
+function saveLog() {
+  try {
+    localStorage.setItem(LOG_STORAGE_KEY, JSON.stringify(tradeLog));
+  } catch(e) {
+    console.error('Save log failed:', e);
+  }
+}
+
+function logTrade() {
+  const entry = parseFloat(document.getElementById('riskEntry').value);
+  const sl = parseFloat(document.getElementById('riskSL').value);
+  const tp = parseFloat(document.getElementById('riskTP').value);
+  const direction = lastSignal ? lastSignal.direction : null;
+
+  if (!entry || !sl || !tp || !direction) {
+    alert('Belum ada sinyal valid untuk dicatat. Jalankan Rule 2 (Scan Entry) dulu sampai dapat sinyal BUY/SELL.');
+    return;
+  }
+
+  const riskDist = Math.abs(entry - sl);
+  const rewardDist = Math.abs(tp - entry);
+  const rr = riskDist > 0 ? (rewardDist / riskDist).toFixed(2) : '0';
+
+  tradeLog.unshift({
+    time: Date.now(),
+    direction, entry, sl, tp, rr,
+    status: 'pending'
+  });
+
+  saveLog();
+  renderLog();
+  lastSignal = null;
+}
+
+function renderLog() {
+  const tbody = document.getElementById('logTableBody');
+  if (tradeLog.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="log-empty">Belum ada trade tercatat. Catat sinyal dari Rule 3 di atas.</td></tr>';
+  } else {
+    tbody.innerHTML = tradeLog.map(t => {
+      const timeStr = new Date(t.time).toLocaleString('id-ID', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+      const dirColor = t.direction === 'BUY' ? 'var(--green)' : 'var(--red)';
+      return `<tr>
+        <td>${timeStr}</td>
+        <td style="color:${dirColor}; font-weight:700;">${t.direction}</td>
+        <td>${t.entry.toFixed(2)}</td>
+        <td>1:${t.rr}</td>
+        <td><span class="log-status ${t.status}">${t.status.toUpperCase()}</span></td>
+      </tr>`;
+    }).join('');
+  }
+
+  const total = tradeLog.length;
+  const resolved = tradeLog.filter(t => t.status !== 'pending');
+  const wins = tradeLog.filter(t => t.status === 'win').length;
+  const pending = tradeLog.filter(t => t.status === 'pending').length;
+  const winrate = resolved.length > 0 ? Math.round((wins / resolved.length) * 100) : 0;
+
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statWinrate').textContent = winrate + '%';
+  document.getElementById('statPending').textContent = pending;
+}
+
+function checkLogAgainstPrice(price) {
+  if (!price) return;
+  let changed = false;
+  tradeLog.forEach(t => {
+    if (t.status !== 'pending') return;
+    const hitTP = t.direction === 'BUY' ? price >= t.tp : price <= t.tp;
+    const hitSL = t.direction === 'BUY' ? price <= t.sl : price >= t.sl;
+    if (hitTP) { t.status = 'win'; changed = true; }
+    else if (hitSL) { t.status = 'loss'; changed = true; }
+  });
+  if (changed) { saveLog(); renderLog(); }
+}
+
+function clearLog() {
+  if (!confirm('Hapus semua riwayat trade log? Ini gak bisa dibatalkan.')) return;
+  tradeLog = [];
+  saveLog();
+  renderLog();
+}
+
+// ==============================
+// INIT
+// ==============================
+loadTradingViewChart();
+loadLog();
+refreshBias();
+calcRisk();
+setInterval(refreshBias, 60000); // HTF doesn't need to refresh as often
+setInterval(async () => {
+  if (m5Candles.length === 0) return;
+  try {
+    const fresh = await fetchYahooChart('5m', '1d');
+    const candles = yahooToCandles(fresh);
+    if (candles.length === 0) return;
+    const price = candles[candles.length - 1][4];
+    checkLogAgainstPrice(price);
+  } catch(e) { /* silent — next interval will retry */ }
+}, 20000);
+</script>
+</body>
+</html>
